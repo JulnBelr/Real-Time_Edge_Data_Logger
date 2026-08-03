@@ -1,10 +1,25 @@
 int Potential_meter = A0;
 
-volatile bool sampleReady = false;
+volatile uint16_t samplesReady = 0;
 
-void setup() {
+const uint8_t BUFFER_SIZE = 8;
 
-    Serial.begin(9600);
+struct Sample
+{
+    unsigned long timestamp;
+    uint16_t raw;
+};
+
+Sample buffer[BUFFER_SIZE];
+
+uint8_t writeIndex = 0;
+uint8_t readIndex = 0;
+
+volatile uint8_t bufferCount = 0;
+
+void setup()
+{
+    Serial.begin(115200);
 
     noInterrupts();
 
@@ -15,8 +30,8 @@ void setup() {
     // Reset Timer1
     TCNT1 = 0;
 
-    // 2 Hz with 16 MHz clock and 256 prescaler
-    OCR1A = 31249;
+    // 100 Hz with 16 MHz clock and 256 prescaler
+    OCR1A = 624;
 
     // CTC mode
     TCCR1B |= (1 << WGM12);
@@ -30,34 +45,74 @@ void setup() {
     interrupts();
 }
 
-void loop() {
-
-if (sampleReady == true)
+void loop()
 {
-  
-  sampleReady = false;
+    // =========================
+    // PRODUCER
+    // =========================
 
-  int rawReading = analogRead(Potential_meter);
+    noInterrupts();
 
-  unsigned long currentTime = millis();
+    if (samplesReady > 0)
+    {
+        samplesReady--;
 
-    float Value = (rawReading / 1023.0) * 5.0;
-    
-    float TimeSec = currentTime/ 1000.0;
+        interrupts();
 
-    Serial.print("TIMESTAMP = ");
-    Serial.print(TimeSec);
-    Serial.print(" s  | ");
-    Serial.print("POTENTIAL METER = ");
-    Serial.print(Value);
-    Serial.print(" V  |  RAW = ");
-    Serial.println(rawReading);}
-     
+        int newReading = analogRead(Potential_meter);
 
+        if (bufferCount < BUFFER_SIZE)
+        {
+            unsigned long currentTime = millis();
+
+            buffer[writeIndex].timestamp = currentTime;
+            buffer[writeIndex].raw = newReading;
+
+            writeIndex++;
+
+            if (writeIndex >= BUFFER_SIZE)
+            {
+                writeIndex = 0;
+            }
+
+            bufferCount++;
+        }
+    }
+    else
+    {
+        interrupts();
+    }
+
+
+    // =========================
+    // CONSUMER
+    // =========================
+
+    if (bufferCount > 0)
+    {
+        int rawReading = buffer[readIndex].raw;
+
+        unsigned long timeStamp =
+            buffer[readIndex].timestamp;
+
+        readIndex++;
+
+        if (readIndex >= BUFFER_SIZE)
+        {
+            readIndex = 0;
+        }
+
+        bufferCount--;
+
+        // CSV FORMAT
+        Serial.print(timeStamp);
+        Serial.print(",");
+        Serial.println(rawReading);
+    }
 }
 
-ISR(TIMER1_COMPA_vect) {
 
-    // Timer interrupt occurs here
-sampleReady = true;   
+ISR(TIMER1_COMPA_vect)
+{
+    samplesReady++;
 }
