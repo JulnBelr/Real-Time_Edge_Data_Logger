@@ -1,0 +1,56 @@
+int Potential_meter = A0;
+
+volatile bool sampleReady = false;
+
+void setup() {
+
+    Serial.begin(9600);
+
+    noInterrupts();
+
+    // Clear Timer1 registers
+    TCCR1A = 0;
+    TCCR1B = 0;
+
+    // Reset Timer1
+    TCNT1 = 0;
+
+    // 2 Hz with 16 MHz clock and 256 prescaler
+    OCR1A = 31249;
+
+    // CTC mode
+    TCCR1B |= (1 << WGM12);
+
+    // Prescaler = 256
+    TCCR1B |= (1 << CS12);
+
+    // Enable Timer1 Compare Match A interrupt
+    TIMSK1 |= (1 << OCIE1A);
+
+    interrupts();
+}
+
+void loop() {
+
+if (sampleReady == true)
+{
+  
+  sampleReady = false;
+
+  int rawReading = analogRead(Potential_meter);
+
+    float Value = (rawReading / 1023.0) * 5.0;
+
+    Serial.print("POTENTIAL METER = ");
+    Serial.print(Value);
+    Serial.print(" V    RAW = ");
+    Serial.println(rawReading);}
+     
+
+}
+
+ISR(TIMER1_COMPA_vect) {
+
+    // Timer interrupt occurs here
+sampleReady = true;   
+}
