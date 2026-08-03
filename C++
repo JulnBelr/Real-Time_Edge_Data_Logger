@@ -8,6 +8,7 @@ struct Sample
 {
     unsigned long timestamp;
     uint16_t raw;
+    float voltage;
 };
 
 Sample buffer[BUFFER_SIZE];
@@ -16,6 +17,8 @@ uint8_t writeIndex = 0;
 uint8_t readIndex = 0;
 
 volatile uint8_t bufferCount = 0;
+
+uint16_t droppedSamples = 0;
 
 void setup()
 {
@@ -59,14 +62,17 @@ void loop()
 
         interrupts();
 
-        int newReading = analogRead(Potential_meter);
 
         if (bufferCount < BUFFER_SIZE)
         {
             unsigned long currentTime = millis();
 
+        int newReading = analogRead(Potential_meter);
+
             buffer[writeIndex].timestamp = currentTime;
             buffer[writeIndex].raw = newReading;
+            buffer[writeIndex].voltage = newReading*(5.0/1023.0);
+
 
             writeIndex++;
 
@@ -77,12 +83,17 @@ void loop()
 
             bufferCount++;
         }
+        else
+        {
+                droppedSamples++;
+
+        }
     }
     else
     {
-        interrupts();
-    }
-
+        interrupts();       
+}
+    
 
     // =========================
     // CONSUMER
@@ -90,10 +101,13 @@ void loop()
 
     if (bufferCount > 0)
     {
-        int rawReading = buffer[readIndex].raw;
+        uint16_t  rawReading = buffer[readIndex].raw;
 
-        unsigned long timeStamp =
-            buffer[readIndex].timestamp;
+        unsigned long timeStamp = buffer[readIndex].timestamp;
+
+        float voltage = buffer[readIndex].voltage;
+
+
 
         readIndex++;
 
@@ -105,9 +119,14 @@ void loop()
         bufferCount--;
 
         // CSV FORMAT
+        Serial.print("# Dropped samples: ");
+        Serial.println(droppedSamples);
         Serial.print(timeStamp);
         Serial.print(",");
-        Serial.println(rawReading);
+        Serial.print(rawReading);
+        Serial.print(",");
+        Serial.println(voltage);
+
     }
 }
 
