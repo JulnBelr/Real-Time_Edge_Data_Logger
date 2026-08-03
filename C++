@@ -39,11 +39,18 @@ if (sampleReady == true)
 
   int rawReading = analogRead(Potential_meter);
 
-    float Value = (rawReading / 1023.0) * 5.0;
+  unsigned long currentTime = millis();
 
+    float Value = (rawReading / 1023.0) * 5.0;
+    
+    float TimeSec = currentTime/ 1000.0;
+
+    Serial.print("TIMESTAMP = ");
+    Serial.print(TimeSec);
+    Serial.print(" s  | ");
     Serial.print("POTENTIAL METER = ");
     Serial.print(Value);
-    Serial.print(" V    RAW = ");
+    Serial.print(" V  |  RAW = ");
     Serial.println(rawReading);}
      
 
